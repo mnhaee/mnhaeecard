@@ -61,7 +61,7 @@
   <div class="qr-wrap">
     <div id="qrcode"></div>
     <div class="qr-hint">Scan to save contact info</div>
-    <button class="downloadbtn" id="downloadBtn">Save as Image</button>
+    <button class="downloadbtn" id="downloadBtn">Save</button>
   </div>
 </div>
 
@@ -161,74 +161,94 @@ function drawAvatar(ctx, data, cx, cy, r){
 }
 
 async function buildShareCanvas(data){
-  const W = 640, H = 900;
+  const W = 1290, H = 2796; // matches iPhone Pro Max / Galaxy Ultra display ratio (~19.5:9)
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
 
+  // full-bleed background
   const bgGrad = ctx.createLinearGradient(0, 0, W, H);
-  bgGrad.addColorStop(0, "#111827");
-  bgGrad.addColorStop(1, "#1f2937");
+  bgGrad.addColorStop(0, "#0b0f1a");
+  bgGrad.addColorStop(0.55, "#111827");
+  bgGrad.addColorStop(1, "#0b0f1a");
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, W, H);
 
-  // accent top band
-  const accentGrad = ctx.createLinearGradient(0, 0, W, 0);
-  accentGrad.addColorStop(0, "#2f6feb");
-  accentGrad.addColorStop(1, "#1f4fb0");
-  ctx.fillStyle = accentGrad;
-  ctx.fillRect(0, 0, W, 10);
+  // soft decorative glows so it reads as a wallpaper, not a card
+  function glow(x,y,r,color){
+    const g = ctx.createRadialGradient(x,y,0,x,y,r);
+    g.addColorStop(0, color);
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,W,H);
+  }
+  glow(W*0.15, H*0.08, 520, "rgba(47,111,235,0.35)");
+  glow(W*0.9, H*0.92, 560, "rgba(31,79,176,0.30)");
 
-  // avatar
+  // content anchor (kept off dead-center-bottom so phone docks/icons don't cover it)
+  const y0 = 1300;
+  const avatarCenterY = y0 - 380;
+  const avatarR = 130;
+
   if(data.photo){
     await new Promise(res=>{
       const img = new Image();
-      img.onload = ()=>{ drawAvatar(ctx, data, W/2, 150, 78); res(); };
+      img.onload = ()=>{ drawAvatar(ctx, data, W/2, avatarCenterY, avatarR); res(); };
       img.onerror = res;
       img.src = data.photo;
     });
   } else {
-    drawAvatar(ctx, data, W/2, 150, 78);
+    drawAvatar(ctx, data, W/2, avatarCenterY, avatarR);
   }
+  // thin ring around avatar
+  ctx.beginPath();
+  ctx.arc(W/2, avatarCenterY, avatarR+6, 0, Math.PI*2);
+  ctx.strokeStyle = "rgba(255,255,255,0.25)";
+  ctx.lineWidth = 3;
+  ctx.stroke();
 
-  ctx.fillStyle = "#f9fafb";
   ctx.textAlign = "center";
-  ctx.font = "bold 34px 'Segoe UI',Arial,sans-serif";
-  ctx.fillText(data.name||"", W/2, 275);
+  ctx.fillStyle = "#f9fafb";
+  ctx.font = "bold 56px 'Segoe UI',Arial,sans-serif";
+  const nameY = avatarCenterY + 200;
+  ctx.fillText(data.name||"", W/2, nameY);
 
   ctx.fillStyle = "#9ca3af";
-  ctx.font = "20px 'Segoe UI',Arial,sans-serif";
-  ctx.fillText(data.role||"", W/2, 308);
+  ctx.font = "32px 'Segoe UI',Arial,sans-serif";
+  const roleY = nameY + 55;
+  ctx.fillText(data.role||"", W/2, roleY);
 
   ctx.fillStyle = "#5b8def";
-  ctx.font = "600 16px 'Segoe UI',Arial,sans-serif";
-  wrapCenteredText(ctx, data.company||"", W/2, 336, 520, 20);
+  ctx.font = "600 26px 'Segoe UI',Arial,sans-serif";
+  const companyY = roleY + 55;
+  wrapCenteredText(ctx, data.company||"", W/2, companyY, 980, 34);
 
   // white QR panel
-  const panelSize = 340;
-  const panelX = (W - panelSize)/2, panelY = 400;
+  const panelSize = 480;
+  const panelX = (W - panelSize)/2;
+  const panelY = companyY + 100;
   ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,.35)";
-  ctx.shadowBlur = 25;
-  ctx.shadowOffsetY = 10;
+  ctx.shadowColor = "rgba(0,0,0,.4)";
+  ctx.shadowBlur = 40;
+  ctx.shadowOffsetY = 16;
   ctx.fillStyle = "#ffffff";
-  roundRect(ctx, panelX, panelY, panelSize, panelSize, 22);
+  roundRect(ctx, panelX, panelY, panelSize, panelSize, 32);
   ctx.fill();
   ctx.restore();
 
   const qrCanvas = document.querySelector('#qrcode canvas');
-  const qrSize = 270;
+  const qrSize = 380;
   if(qrCanvas){
     ctx.drawImage(qrCanvas, panelX + (panelSize-qrSize)/2, panelY + (panelSize-qrSize)/2, qrSize, qrSize);
   }
 
   ctx.fillStyle = "#d1d5db";
-  ctx.font = "16px 'Segoe UI',Arial,sans-serif";
-  ctx.fillText("Scan to save my contact info", W/2, panelY + panelSize + 40);
+  ctx.font = "26px 'Segoe UI',Arial,sans-serif";
+  ctx.fillText("Scan to save my contact info", W/2, panelY + panelSize + 65);
 
   ctx.fillStyle = "#6b7280";
-  ctx.font = "13px 'Segoe UI',Arial,sans-serif";
-  ctx.fillText(window.location.href.replace(/^https?:\/\//,""), W/2, panelY + panelSize + 68);
+  ctx.font = "22px 'Segoe UI',Arial,sans-serif";
+  ctx.fillText(window.location.href.replace(/^https?:\/\//,""), W/2, panelY + panelSize + 105);
 
   return canvas;
 }
@@ -254,7 +274,7 @@ document.getElementById('downloadBtn').addEventListener('click', async ()=>{
   try{
     const canvas = await buildShareCanvas(loadData());
     const link = document.createElement('a');
-    link.download = "mohamed-nagi-digital-card.png";
+    link.download = "mohamed-nagi-qr-wallpaper.png";
     link.href = canvas.toDataURL('image/png');
     document.body.appendChild(link);
     link.click();
