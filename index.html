@@ -53,11 +53,17 @@
     margin-top:6px;padding:10px 20px;border-radius:10px;border:none;
     background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;
   }
+  .contactbtn{
+    display:block;width:100%;margin-top:14px;padding:12px;border-radius:10px;border:none;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;
+    font-size:14px;font-weight:600;cursor:pointer;
+  }
 </style>
 </head>
 <body>
 <div id="app">
   <div class="card" id="cardBox"></div>
+  <button class="contactbtn" id="contactBtn">Save Contact</button>
   <div class="qr-wrap">
     <div id="qrcode"></div>
     <div class="qr-hint">Scan to save contact info</div>
@@ -265,6 +271,62 @@ function wrapCenteredText(ctx, text, cx, y, maxWidth, lineHeight){
   if(line) lines.push(line);
   lines.forEach((l,i)=> ctx.fillText(l, cx, y + i*lineHeight));
 }
+
+function foldLine(line){
+  // vCard 3.0 line folding: max 75 octets per line, continuation starts with a space
+  const bytes = new TextEncoder().encode(line);
+  if(bytes.length <= 75) return line;
+  let out = "", chunkStart = 0;
+  while(chunkStart < line.length){
+    let end = chunkStart + 73; // leave room, roughly
+    let chunk = line.slice(chunkStart, end);
+    out += (chunkStart === 0 ? "" : "\r\n ") + chunk;
+    chunkStart = end;
+  }
+  return out;
+}
+
+function buildVCard(data){
+  const nameParts = (data.name||"").trim().split(/\s+/);
+  const first = nameParts[0] || "";
+  const last = nameParts.slice(1).join(" ") || "";
+  const lines = [];
+  lines.push("BEGIN:VCARD");
+  lines.push("VERSION:3.0");
+  lines.push(`N:${last};${first};;;`);
+  lines.push(`FN:${data.name||""}`);
+  if(data.company) lines.push(`ORG:${data.company}`);
+  if(data.role) lines.push(`TITLE:${data.role}`);
+  if(data.phone_personal) lines.push(`TEL;TYPE=CELL:${data.phone_personal}`);
+  if(data.phone_work) lines.push(`TEL;TYPE=WORK:${data.phone_work}`);
+  if(data.phone_egypt) lines.push(`TEL;TYPE=HOME:${data.phone_egypt}`);
+  if(data.whatsapp) lines.push(`NOTE:WhatsApp: ${waLink(data.whatsapp)}`);
+  if(data.email) lines.push(`EMAIL;TYPE=INTERNET:${data.email}`);
+  if(data.website) lines.push(`URL;TYPE=WORK:${data.website}`);
+  if(data.linkedin) lines.push(`URL;TYPE=LinkedIn:${data.linkedin}`);
+  if(data.address) lines.push(`ADR;TYPE=WORK:;;${data.address};;;;`);
+  if(data.photo){
+    const b64 = data.photo.split(",")[1] || "";
+    lines.push(`PHOTO;ENCODING=b;TYPE=JPEG:${b64}`);
+  }
+  lines.push("END:VCARD");
+  return lines.map(foldLine).join("\r\n");
+}
+
+document.getElementById('contactBtn').addEventListener('click', ()=>{
+  const data = loadData();
+  const vcf = buildVCard(data);
+  const blob = new Blob([vcf], {type:"text/vcard;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const safeName = (data.name||"contact").replace(/\s+/g,"-");
+  link.download = `${safeName}.vcf`;
+  link.href = url;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(()=> URL.revokeObjectURL(url), 3000);
+});
 
 document.getElementById('downloadBtn').addEventListener('click', async ()=>{
   const btn = document.getElementById('downloadBtn');
