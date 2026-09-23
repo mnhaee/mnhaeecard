@@ -58,12 +58,25 @@
     background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;
     font-size:14px;font-weight:600;cursor:pointer;
   }
+  .share-row{display:flex;gap:8px;margin-top:10px;}
+  .share-row button{
+    flex:1;padding:10px 4px;border-radius:9px;border:1px solid var(--border);
+    background:var(--card);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+  }
+  .share-row button .emo{font-size:16px;}
+  .share-row button.copied{border-color:var(--accent);color:var(--accent);}
 </style>
 </head>
 <body>
 <div id="app">
   <div class="card" id="cardBox"></div>
   <button class="contactbtn" id="contactBtn">Save Contact</button>
+  <div class="share-row">
+    <button id="shareBtn"><span class="emo">📤</span>Share</button>
+    <button id="copyBtn"><span class="emo">🔗</span>Copy Link</button>
+    <button id="waShareBtn"><span class="emo">💬</span>WhatsApp</button>
+  </div>
   <div class="qr-wrap">
     <div id="qrcode"></div>
     <div class="qr-hint">Scan to save contact info</div>
@@ -88,9 +101,15 @@ function initials(name){
 function esc(s){
   const d = document.createElement('div'); d.textContent = s ?? ""; return d.innerHTML;
 }
-function waLink(num){
+function waLink(num, data){
   const digits = (num||"").replace(/[^\d]/g,"");
-  return digits ? `https://wa.me/${digits}` : "";
+  if(!digits) return "";
+  if(data){
+    const firstName = (data.name||"").trim().split(/\s+/)[0] || "";
+    const msg = `مرحباً ${firstName}، اطلعت على بطاقتك الرقمية، ويسعدني التواصل معك 🙏\nHello ${firstName}, I came across your digital business card and would be glad to connect with you 🙏`;
+    return `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`;
+  }
+  return `https://wa.me/${digits}`;
 }
 function renderCard(data){
   const box = document.getElementById('cardBox');
@@ -110,7 +129,7 @@ function renderCard(data){
     if(!v) return;
     let inner = esc(v);
     if(f.k.startsWith("phone")) inner = `<a href="tel:${esc(v.replace(/\s+/g,""))}">${esc(v)}</a>`;
-    if(f.k==="whatsapp") inner = `<a href="${esc(waLink(v))}" target="_blank" rel="noopener">Chat on WhatsApp</a>`;
+    if(f.k==="whatsapp") inner = `<a href="${esc(waLink(v, data))}" target="_blank" rel="noopener">Chat on WhatsApp</a>`;
     if(f.k==="email") inner = `<a href="mailto:${esc(v)}">${esc(v)}</a>`;
     if(f.k==="linkedin") inner = `<a href="${esc(v)}" target="_blank" rel="noopener">LinkedIn Profile</a>`;
     if(f.k==="website") inner = `<a href="${esc(v)}" target="_blank" rel="noopener">${esc(v)}</a>`;
@@ -312,6 +331,51 @@ function buildVCard(data){
   lines.push("END:VCARD");
   return lines.map(foldLine).join("\r\n");
 }
+
+function shareMessage(data){
+  const name = data.name || "";
+  const url = window.location.href;
+  return `مرحباً، ده كارتي الرقمي 👇\nHi, here's my digital business card 👇\n${name}\n${url}`;
+}
+
+document.getElementById('shareBtn').addEventListener('click', async ()=>{
+  const data = loadData();
+  const text = shareMessage(data);
+  if(navigator.share){
+    try{
+      await navigator.share({ title: data.name||"Digital Card", text: text, url: window.location.href });
+    }catch(e){ /* user cancelled, ignore */ }
+  } else {
+    try{
+      await navigator.clipboard.writeText(text);
+      const btn = document.getElementById('shareBtn');
+      const prev = btn.innerHTML;
+      btn.innerHTML = '<span class="emo">✅</span>Copied';
+      setTimeout(()=> btn.innerHTML = prev, 1600);
+    }catch(e){
+      alert(text);
+    }
+  }
+});
+
+document.getElementById('copyBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('copyBtn');
+  try{
+    await navigator.clipboard.writeText(window.location.href);
+    btn.classList.add('copied');
+    const prev = btn.innerHTML;
+    btn.innerHTML = '<span class="emo">✅</span>Copied';
+    setTimeout(()=>{ btn.innerHTML = prev; btn.classList.remove('copied'); }, 1600);
+  }catch(e){
+    prompt("Copy this link:", window.location.href);
+  }
+});
+
+document.getElementById('waShareBtn').addEventListener('click', ()=>{
+  const data = loadData();
+  const text = shareMessage(data);
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+});
 
 document.getElementById('contactBtn').addEventListener('click', ()=>{
   const data = loadData();
