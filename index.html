@@ -106,7 +106,7 @@ function waLink(num, data){
   if(!digits) return "";
   if(data){
     const firstName = (data.name||"").trim().split(/\s+/)[0] || "";
-    const msg = `مرحباً ${firstName}، اطلعت على بطاقتك الرقمية، ويسعدني التواصل معك 🙏\nHello ${firstName}, I came across your digital business card and would be glad to connect with you 🙏`;
+    const msg = `مرحباً محمد، اطلعت على بطاقتك الرقمية، ويسعدني التواصل معك \u{1F64F}\nHello ${firstName}, I came across your digital business card and would be glad to connect with you \u{1F64F}`;
     return `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`;
   }
   return `https://wa.me/${digits}`;
