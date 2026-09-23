@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>محمد ناجي حسن</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#f2f4f7; --card:#ffffff; --text:#161a1f; --muted:#6b7280;
+    --accent:#2f6feb; --accent2:#1f4fb0; --border:#e6e8ec;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0f1115; --card:#1a1d23; --text:#f2f3f5; --muted:#9aa1ac; --border:#2a2e36;
+    }
+  }
+  html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%;}
+  body{
+    height:100%;margin:0;background:var(--bg);color:var(--text);
+    font-family:'Segoe UI',Tahoma,Arial,sans-serif;
+    display:flex;justify-content:center;padding:24px 14px;
+  }
+  #app{width:100%;max-width:420px;}
+  .card{
+    background:var(--card);border:1px solid var(--border);border-radius:18px;
+    padding:26px 22px;box-shadow:0 4px 18px rgba(0,0,0,.08);
+  }
+  .avatar{
+    width:78px;height:78px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));
+    display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px;font-weight:700;
+    margin:0 auto 14px;overflow:hidden;
+  }
+  .avatar img{width:100%;height:100%;object-fit:cover;}
+  h1{font-size:20px;margin:0 0 2px;text-align:center;}
+  .role{color:var(--muted);text-align:center;font-size:14px;margin:0 0 2px;}
+  .company{color:var(--accent);text-align:center;font-size:13px;font-weight:600;margin:0 0 18px;}
+  .row{display:flex;align-items:center;gap:10px;padding:10px 8px;border-top:1px solid var(--border);font-size:14px;}
+  .row:first-of-type{border-top:none;}
+  .row .ic{width:20px;text-align:center;flex-shrink:0;}
+  .row a{color:var(--text);text-decoration:none;word-break:break-all;}
+  .qr-wrap{
+    display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:20px;
+    padding-top:18px;border-top:1px dashed var(--border);
+  }
+  .qr-wrap img,.qr-wrap canvas{border-radius:10px;background:#fff;padding:8px;}
+  .qr-hint{font-size:12px;color:var(--muted);text-align:center;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="card" id="cardBox"></div>
+  <div class="qr-wrap">
+    <div id="qrcode"></div>
+    <div class="qr-hint">امسح الكود لحفظ بيانات التواصل</div>
+  </div>
+</div>
+
+<script id="card-data" type="application/json">
+{"name":"Mohamed Nagi Hassan","role":"IT System Administrator","company":"Group of Factories","phone":"","whatsapp":"","email":"","linkedin":"","website":"","address":"Dubai, UAE","photo":""}
+</script>
+
+<script>
+function loadData(){
+  try{ return JSON.parse(document.getElementById('card-data').textContent); }
+  catch(e){ return {}; }
+}
+function initials(name){
+  if(!name) return "؟";
+  const parts = name.trim().split(/\s+/);
+  return (parts[0]?.[0]||"") + (parts[1]?.[0]||"");
+}
+function esc(s){
+  const d = document.createElement('div'); d.textContent = s ?? ""; return d.innerHTML;
+}
+function waLink(num){
+  const digits = (num||"").replace(/[^\d]/g,"");
+  return digits ? `https://wa.me/${digits}` : "";
+}
+function renderCard(data){
+  const box = document.getElementById('cardBox');
+  const order = ["phone","whatsapp","email","linkedin","website","address"];
+  const icons = {phone:"📞",whatsapp:"💬",email:"✉️",linkedin:"🔗",website:"🌐",address:"📍"};
+  let rows = "";
+  order.forEach(k=>{
+    const v = data[k];
+    if(!v) return;
+    let inner = esc(v);
+    if(k==="phone") inner = `<a href="tel:${esc(v)}">${esc(v)}</a>`;
+    if(k==="whatsapp") inner = `<a href="${esc(waLink(v))}" target="_blank" rel="noopener">دردشة على واتساب</a>`;
+    if(k==="email") inner = `<a href="mailto:${esc(v)}">${esc(v)}</a>`;
+    if(k==="linkedin" || k==="website") inner = `<a href="${esc(v)}" target="_blank" rel="noopener">${esc(v)}</a>`;
+    rows += `<div class="row"><span class="ic">${icons[k]}</span>${inner}</div>`;
+  });
+  const avatarInner = data.photo ? `<img src="${data.photo}" alt="">` : esc(initials(data.name));
+  box.innerHTML = `
+    <div class="avatar">${avatarInner}</div>
+    <h1>${esc(data.name||"")}</h1>
+    <p class="role">${esc(data.role||"")}</p>
+    <p class="company">${esc(data.company||"")}</p>
+    ${rows}
+  `;
+}
+function renderQR(){
+  const el = document.getElementById('qrcode');
+  el.innerHTML = "";
+  new QRCode(el, { text: window.location.href, width: 170, height: 170, correctLevel: QRCode.CorrectLevel.M });
+}
+renderCard(loadData());
+renderQR();
+</script>
+</body>
+</html>
