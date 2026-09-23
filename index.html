@@ -49,6 +49,10 @@
   }
   .qr-wrap img,.qr-wrap canvas{border-radius:10px;background:#fff;padding:8px;}
   .qr-hint{font-size:12px;color:var(--muted);text-align:center;}
+  .downloadbtn{
+    margin-top:6px;padding:10px 20px;border-radius:10px;border:none;
+    background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;
+  }
 </style>
 </head>
 <body>
@@ -57,6 +61,7 @@
   <div class="qr-wrap">
     <div id="qrcode"></div>
     <div class="qr-hint">Scan to save contact info</div>
+    <button class="downloadbtn" id="downloadBtn">Save as Image</button>
   </div>
 </div>
 
@@ -120,6 +125,147 @@ function renderQR(){
   el.innerHTML = "";
   new QRCode(el, { text: window.location.href, width: 170, height: 170, correctLevel: QRCode.CorrectLevel.M });
 }
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+function drawAvatar(ctx, data, cx, cy, r){
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI*2);
+  ctx.closePath();
+  ctx.clip();
+  if(data.photo){
+    const img = new Image();
+    img.src = data.photo;
+    ctx.drawImage(img, cx-r, cy-r, r*2, r*2);
+  } else {
+    const grad = ctx.createLinearGradient(cx-r, cy-r, cx+r, cy+r);
+    grad.addColorStop(0, "#2f6feb");
+    grad.addColorStop(1, "#1f4fb0");
+    ctx.fillStyle = grad;
+    ctx.fillRect(cx-r, cy-r, r*2, r*2);
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 40px 'Segoe UI',Arial,sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(initials(data.name), cx, cy+2);
+  }
+  ctx.restore();
+}
+
+async function buildShareCanvas(data){
+  const W = 640, H = 900;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  const bgGrad = ctx.createLinearGradient(0, 0, W, H);
+  bgGrad.addColorStop(0, "#111827");
+  bgGrad.addColorStop(1, "#1f2937");
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // accent top band
+  const accentGrad = ctx.createLinearGradient(0, 0, W, 0);
+  accentGrad.addColorStop(0, "#2f6feb");
+  accentGrad.addColorStop(1, "#1f4fb0");
+  ctx.fillStyle = accentGrad;
+  ctx.fillRect(0, 0, W, 10);
+
+  // avatar
+  if(data.photo){
+    await new Promise(res=>{
+      const img = new Image();
+      img.onload = ()=>{ drawAvatar(ctx, data, W/2, 150, 78); res(); };
+      img.onerror = res;
+      img.src = data.photo;
+    });
+  } else {
+    drawAvatar(ctx, data, W/2, 150, 78);
+  }
+
+  ctx.fillStyle = "#f9fafb";
+  ctx.textAlign = "center";
+  ctx.font = "bold 34px 'Segoe UI',Arial,sans-serif";
+  ctx.fillText(data.name||"", W/2, 275);
+
+  ctx.fillStyle = "#9ca3af";
+  ctx.font = "20px 'Segoe UI',Arial,sans-serif";
+  ctx.fillText(data.role||"", W/2, 308);
+
+  ctx.fillStyle = "#5b8def";
+  ctx.font = "600 16px 'Segoe UI',Arial,sans-serif";
+  wrapCenteredText(ctx, data.company||"", W/2, 336, 520, 20);
+
+  // white QR panel
+  const panelSize = 340;
+  const panelX = (W - panelSize)/2, panelY = 400;
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,.35)";
+  ctx.shadowBlur = 25;
+  ctx.shadowOffsetY = 10;
+  ctx.fillStyle = "#ffffff";
+  roundRect(ctx, panelX, panelY, panelSize, panelSize, 22);
+  ctx.fill();
+  ctx.restore();
+
+  const qrCanvas = document.querySelector('#qrcode canvas');
+  const qrSize = 270;
+  if(qrCanvas){
+    ctx.drawImage(qrCanvas, panelX + (panelSize-qrSize)/2, panelY + (panelSize-qrSize)/2, qrSize, qrSize);
+  }
+
+  ctx.fillStyle = "#d1d5db";
+  ctx.font = "16px 'Segoe UI',Arial,sans-serif";
+  ctx.fillText("Scan to save my contact info", W/2, panelY + panelSize + 40);
+
+  ctx.fillStyle = "#6b7280";
+  ctx.font = "13px 'Segoe UI',Arial,sans-serif";
+  ctx.fillText(window.location.href.replace(/^https?:\/\//,""), W/2, panelY + panelSize + 68);
+
+  return canvas;
+}
+
+function wrapCenteredText(ctx, text, cx, y, maxWidth, lineHeight){
+  const words = text.split(" ");
+  let line = "", lines = [];
+  words.forEach(w=>{
+    const test = line ? line + " " + w : w;
+    if(ctx.measureText(test).width > maxWidth && line){
+      lines.push(line); line = w;
+    } else { line = test; }
+  });
+  if(line) lines.push(line);
+  lines.forEach((l,i)=> ctx.fillText(l, cx, y + i*lineHeight));
+}
+
+document.getElementById('downloadBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('downloadBtn');
+  btn.disabled = true;
+  const prevText = btn.textContent;
+  btn.textContent = "Preparing...";
+  try{
+    const canvas = await buildShareCanvas(loadData());
+    const link = document.createElement('a');
+    link.download = "mohamed-nagi-digital-card.png";
+    link.href = canvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }catch(e){
+    alert("Couldn't generate the image, please try again.");
+  }
+  btn.disabled = false;
+  btn.textContent = prevText;
+});
+
 renderCard(loadData());
 renderQR();
 </script>
